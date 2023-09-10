@@ -6,6 +6,12 @@
 
 本项目旨在以 Python 复现 Zeiss Zen 软件中所见 CZI 文件的观感 (为 raw 数据着色), 同时提供一个简单的 CZI 通道信息解析器. 
 
+## 安装
+
+```bash
+pip install czi-shader
+```
+
 ## 使用
 
 example: 

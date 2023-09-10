@@ -6,6 +6,12 @@
 
 This project aims to reproduce the appearance of CZI files (coloring raw data) found in Zeiss Zen software using Python and provides a simple CZI channel information parser.
 
+## Installation
+
+```bash
+pip install czi-shader
+```
+
 ## Usage
 
 Example:
