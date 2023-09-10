@@ -38,7 +38,7 @@ CZIChannel(id=3, name='DAPI', bit_count_range=16, pixel_type='Gray16', dye_name=
 
 You can see that the four fluorescence channels (Cy5, Cy3, EGFP, DAPI) along with their corresponding wavelengths, depths, display colors, and display upper and lower limits are listed. The final merged image comparison is shown below:
 
-![Comparison Result](static/result-compare.png)
+![Comparison Result](https://github.com/myuanz/czi-shader/blob/master/static/result-compare.png?raw=true)
 
 The main color tone is related to what is displayed in Zen, with slight differences due to the 0.01 scale used in generating the image.
 
