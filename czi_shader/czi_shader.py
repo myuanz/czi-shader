@@ -2,6 +2,7 @@ import colorsys
 import re
 from collections import defaultdict
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, Optional, Union
 from xml.etree import ElementTree
@@ -9,10 +10,9 @@ from xml.etree import ElementTree
 import aicspylibczi
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 import pint
+from numpy.typing import NDArray
 from pint.facets.plain import PlainQuantity
-
 
 T_CZI = Union[aicspylibczi.CziFile, Path, str]
 
@@ -96,18 +96,26 @@ class CZIPhysicalResolution:
     y: PlainQuantity
 
     @staticmethod
-    def from_czi(czi: T_CZI) -> list['CZIPhysicalResolution']:
+    def from_czi(czi: T_CZI) -> 'CZIPhysicalResolution':
         if not isinstance(czi, aicspylibczi.CziFile):
             czi = aicspylibczi.CziFile(czi)
         distance = czi.meta.find('.//Metadata/Scaling/Items')
+        assert distance is not None, 'cannot find distance in czi meta'
         return CZIPhysicalResolution.from_xml(distance)
 
     @staticmethod
     def from_xml(e: ElementTree.Element):
-        x = e.find('./Distance[@Id="X"]/Value').text
-        x_unit = e.find('./Distance[@Id="X"]/DefaultUnitFormat').text
-        y = e.find('./Distance[@Id="Y"]/Value').text
-        y_unit = e.find('./Distance[@Id="Y"]/DefaultUnitFormat').text
+        x = e.find('./Distance[@Id="X"]/Value')
+        x_unit = e.find('./Distance[@Id="X"]/DefaultUnitFormat')
+        y = e.find('./Distance[@Id="Y"]/Value')
+        y_unit = e.find('./Distance[@Id="Y"]/DefaultUnitFormat')
+
+        assert isinstance(x,  ElementTree.Element) and isinstance(x_unit,  ElementTree.Element)
+        assert isinstance(y,  ElementTree.Element) and isinstance(y_unit,  ElementTree.Element)
+        x, x_unit = x.text, x_unit.text
+        y, y_unit = y.text, y_unit.text
+        assert isinstance(x, str) and isinstance(y, str)
+        assert isinstance(x_unit, str) and isinstance(y_unit, str)
 
         return CZIPhysicalResolution(
             x=pint.Quantity(float(x), x_unit) / pint.Quantity(1, 'pixel'),
@@ -248,7 +256,71 @@ def shading_czi(
 
 
 @dataclass
+class CZIImageInfo:
+    ''' example input:
+    <Image>
+        <AcquisitionDateAndTime>2019-04-27T05:46:48.1796863Z</AcquisitionDateAndTime>
+        <SizeC>4</SizeC>
+        <ComponentBitCount>16</ComponentBitCount>
+        <PixelType>Gray16</PixelType>
+        <SizeX>73692</SizeX>
+        <SizeY>53448</SizeY>
+        <SizeS>1</SizeS>
+        <SizeM>899</SizeM>
+        <OriginalCompressionMethod>JpgXr</OriginalCompressionMethod>
+        <OriginalEncodingQuality>85</OriginalEncodingQuality>
+        <AcquisitionDuration>3484246.2876000004</AcquisitionDuration>
+    </Image>
+    '''
+    acquisition_date_and_time: datetime
+    
+    size_c             : int
+    component_bit_count: int
+
+    pixel_type: str
+    size_x    : int
+    size_y    : int
+    size_s    : int
+    size_m    : int
+    
+    original_compression_method: str
+    original_encoding_quality  : int
+    acquisition_duration       : float
+
+    @property
+    def width(self): return self.size_x
+    @property
+    def height(self): return self.size_y
+
+    @staticmethod
+    def from_czi(czi: T_CZI) -> 'CZIImageInfo':
+        if not isinstance(czi, aicspylibczi.CziFile):
+            czi = aicspylibczi.CziFile(czi)
+        image_info = czi.meta.find('.//Metadata/Information/Image')
+        assert image_info is not None, 'cannot find image info in czi meta'
+        return CZIImageInfo.from_xml(image_info)
+    
+    @staticmethod
+    def from_xml(e: ElementTree.Element):
+        dic: dict = etree_to_dict(e)['Image']
+        assert isinstance(dic, dict)
+        return CZIImageInfo(
+            acquisition_date_and_time   = datetime.fromisoformat(dic['AcquisitionDateAndTime']),
+            size_c                      = int(dic['SizeC']),
+            component_bit_count         = int(dic['ComponentBitCount']),
+            pixel_type                  = dic['PixelType'],
+            size_x                      = int(dic['SizeX']),
+            size_y                      = int(dic['SizeY']),
+            size_s                      = int(dic['SizeS']),
+            size_m                      = int(dic['SizeM']),
+            original_compression_method = dic['OriginalCompressionMethod'],
+            original_encoding_quality   = int(dic['OriginalEncodingQuality']),
+            acquisition_duration        = float(dic['AcquisitionDuration']),
+        )
+
+@dataclass
 class CZIMeta:
+    image_info: CZIImageInfo
     resolution: CZIPhysicalResolution
     channels  : list[CZIChannel]
 
@@ -260,7 +332,14 @@ class CZIMeta:
 
     @staticmethod
     def from_xml(e: ElementTree.Element):
+        resolution_xml = e.find('.//Metadata/Scaling/Items')
+        assert resolution_xml is not None, 'cannot find resolution in czi meta'
+
+        image_info_xml = e.find('.//Metadata/Information/Image')
+        assert image_info_xml is not None, 'cannot find image info in czi meta'
+
         return CZIMeta(
-            resolution=CZIPhysicalResolution.from_xml(e.find('.//Metadata/Scaling/Items')),
+            image_info=CZIImageInfo.from_xml(image_info_xml),
+            resolution=CZIPhysicalResolution.from_xml(resolution_xml),
             channels=[CZIChannel.from_xml(ch) for ch in e.findall('.//DisplaySetting/Channels/')],
         )
