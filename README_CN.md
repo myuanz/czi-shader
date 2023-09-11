@@ -49,18 +49,21 @@ CZIChannel(id=3, name='DAPI', bit_count_range=16, pixel_type='Gray16', dye_name=
 ```python
 from czi_shader import CZIMeta
 
-p = '/data/sdf/sc-C057-146-O4213.czi'
+p = '/mnt/inner-data/sc-C057-146-O4213.czi'
 meta = CZIMeta.from_czi(p)
+print('image:', meta.image_info)
 print('resolution:', meta.resolution)
 
 print('channels:')
 for ch in meta.channels:
     print(ch)
+
 ```
 
 output:
 
 ```python
+image: CZIImageInfo(acquisition_date_and_time=datetime.datetime(2020, 12, 1, 4, 45, 35, 982910, tzinfo=datetime.timezone.utc), size_c=4, component_bit_count=16, pixel_type='Gray16', size_x=71234, size_y=56688, size_s=1, size_m=839, original_compression_method='JpgXr', original_encoding_quality=85, acquisition_duration=1716335.2106)
 resolution: CZIPhysicalResolution(x=<Quantity(6.5e-07, 'micrometer / pixel')>, y=<Quantity(6.5e-07, 'micrometer / pixel')>)
 channels:
 CZIChannel(id=0, name='Cy5', bit_count_range=16, pixel_type='Gray16', dye_name='Cy5', short_name='Cy5', illumination_type='Fluorescence', dye_max_emission=673, dye_max_excitation=650, dye_id='McNamara-Boswell-0774', dye_database_id='66071726-cbd4-4c41-b371-0a6eee4ae9c5', color='#FFFF0014', original_color='#FFFF0014', color_mode=None, palette_name=None, gamma=None, low=0.0059662775616083005, high=0.03865110246433204, is_selected=None)
