@@ -10,6 +10,9 @@ import aicspylibczi
 import cv2
 import numpy as np
 from numpy.typing import NDArray
+import pint
+from pint.facets.plain import PlainQuantity
+
 
 T_CZI = Union[aicspylibczi.CziFile, Path, str]
 
@@ -72,6 +75,44 @@ def shading_image(
     hls_image[..., 2] = s * (255 / 100)      # 从 0~100 转到 255
     cv2.cvtColor(hls_image, cv2.COLOR_HLS2RGB, dst=hls_image)
     return hls_image
+
+@dataclass
+class CZIPhysicalResolution:
+    '''
+    example input: 
+    <Items>
+        <Distance Id="X">
+            <Value>6.5E-07</Value>
+            <DefaultUnitFormat>&#181;m</DefaultUnitFormat>
+        </Distance>
+        <Distance Id="Y">
+            <Value>6.5E-07</Value>
+            <DefaultUnitFormat>&#181;m</DefaultUnitFormat>
+        </Distance>
+    </Items>
+
+    '''
+    x: PlainQuantity
+    y: PlainQuantity
+
+    @staticmethod
+    def from_czi(czi: T_CZI) -> list['CZIPhysicalResolution']:
+        if not isinstance(czi, aicspylibczi.CziFile):
+            czi = aicspylibczi.CziFile(czi)
+        distance = czi.meta.find('.//Metadata/Scaling/Items')
+        return CZIPhysicalResolution.from_xml(distance)
+
+    @staticmethod
+    def from_xml(e: ElementTree.Element):
+        x = e.find('./Distance[@Id="X"]/Value').text
+        x_unit = e.find('./Distance[@Id="X"]/DefaultUnitFormat').text
+        y = e.find('./Distance[@Id="Y"]/Value').text
+        y_unit = e.find('./Distance[@Id="Y"]/DefaultUnitFormat').text
+
+        return CZIPhysicalResolution(
+            x=pint.Quantity(float(x), x_unit) / pint.Quantity(1, 'pixel'),
+            y=pint.Quantity(float(y), y_unit) / pint.Quantity(1, 'pixel'),
+        )
 
 @dataclass
 class CZIChannel:
@@ -204,3 +245,22 @@ def shading_czi(
         image = ch.shading(image, black_v=black_v, white_v=white_v, multiply=multiply)
         images.append(image)
     return merge_channels(images)
+
+
+@dataclass
+class CZIMeta:
+    resolution: CZIPhysicalResolution
+    channels  : list[CZIChannel]
+
+    @staticmethod
+    def from_czi(czi: T_CZI) -> 'CZIMeta':
+        if not isinstance(czi, aicspylibczi.CziFile):
+            czi = aicspylibczi.CziFile(czi)
+        return CZIMeta.from_xml(czi.meta)
+
+    @staticmethod
+    def from_xml(e: ElementTree.Element):
+        return CZIMeta(
+            resolution=CZIPhysicalResolution.from_xml(e.find('.//Metadata/Scaling/Items')),
+            channels=[CZIChannel.from_xml(ch) for ch in e.findall('.//DisplaySetting/Channels/')],
+        )
