@@ -64,6 +64,9 @@ def shading_image(
     if black_v is None or white_v is None:
         black_v, white_v = np.percentile(image[image!=0], (1, 99.9))
     assert black_v is not None and white_v is not None
+    black_v = int(black_v)
+    white_v = int(white_v)
+
     np.clip(image, black_v, white_v, out=image)
 
     h, l, s = hls
@@ -313,9 +316,9 @@ class CZIImageInfo:
             size_y                      = int(dic['SizeY']),
             size_s                      = int(dic['SizeS']),
             size_m                      = int(dic['SizeM']),
-            original_compression_method = dic['OriginalCompressionMethod'],
-            original_encoding_quality   = int(dic['OriginalEncodingQuality']),
-            acquisition_duration        = float(dic['AcquisitionDuration']),
+            original_compression_method = dic.get('OriginalCompressionMethod', ''),
+            original_encoding_quality   = int(dic.get('OriginalEncodingQuality', '0')),
+            acquisition_duration        = float(dic.get('AcquisitionDuration', '0')),
         )
 
 @dataclass
