@@ -58,9 +58,12 @@ def czi_hex_rgb_to_hls(color_str: str) -> tuple[float, float, float]:
 def shading_image(
     image: np.ndarray, hls: tuple[float, float, float], 
     black_v:Optional[float]=None, white_v:Optional[float]=None,
-    multiply: float=1
+    multiply: float=1,
+    *, 
+    brightfield: bool=False,
 ) ->  NDArray[np.uint8]:
-    '''return rgb image'''
+    '''Generate a new image through interval correction, fluorescence images have an additional step of hsl to rgb conversion'''
+
     if black_v is None or white_v is None:
         black_v, white_v = np.percentile(image[image!=0], (1, 99.9))
     assert black_v is not None and white_v is not None
@@ -69,14 +72,19 @@ def shading_image(
 
     np.clip(image, black_v, white_v, out=image)
 
-    h, l, s = hls
-    light = (image - black_v) / (white_v - black_v) * l * multiply
-    np.clip(light, 0, l, out=light)
-    hls_image = np.zeros((*image.shape, 3), dtype=np.uint8)
-    hls_image[..., 0] = h / 2                # 从 0~360 转到 180
-    hls_image[..., 1] = light * (255 / 100)  # 从 0~100 转到 255
-    hls_image[..., 2] = s * (255 / 100)      # 从 0~100 转到 255
-    cv2.cvtColor(hls_image, cv2.COLOR_HLS2RGB, dst=hls_image)
+    if not brightfield:
+        h, l, s = hls
+        light = (image - black_v) / (white_v - black_v) * l * multiply
+        np.clip(light, 0, l, out=light)
+        hls_image = np.zeros((*image.shape, 3), dtype=np.uint8)
+        hls_image[..., 0] = h / 2                # 从 0~360 转到 180
+        hls_image[..., 1] = light * (255 / 100)  # 从 0~100 转到 255
+        hls_image[..., 2] = s * (255 / 100)      # 从 0~100 转到 255
+        cv2.cvtColor(hls_image, cv2.COLOR_HLS2RGB, dst=hls_image)
+    else:
+        # brightfield image is always bgr, so convert it to rgb
+        cv2.cvtColor(image, cv2.COLOR_BGR2RGB, dst=image)
+        hls_image = image
     return hls_image
 
 @dataclass
@@ -233,7 +241,9 @@ class CZIChannel:
             (self.int_low is not None and self.int_high is not None)
         ):
             black_v, white_v = self.int_low, self.int_high
-        return shading_image(image, self.hls, black_v, white_v, multiply=multiply)
+        
+        brightfield = self.dye_name == 'TL Brightfield'
+        return shading_image(image, self.hls, black_v, white_v, multiply=multiply, brightfield=brightfield)
 
 def merge_channels(rgb_imgs: list[NDArray[np.uint8]]) -> NDArray[np.uint8]:
     merged_image = np.sum(rgb_imgs, axis=0, dtype='uint16')
