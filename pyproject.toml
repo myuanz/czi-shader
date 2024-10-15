@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "czi-shader"
-version = "0.1.4"
+version = "0.1.5"
 description = "Reproduce the appearance of CZI files (coloring raw data) seen in Zeiss Zen software, and provide channel information extraction of CZI files"
 authors = ["zhengmy <zhengmy@ion.ac.cn>"]
 readme = "README.md"
